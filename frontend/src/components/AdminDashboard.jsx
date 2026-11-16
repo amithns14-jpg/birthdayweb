@@ -40,10 +40,14 @@ export default function AdminDashboard({ isOpen, onClose, onRefreshData, profile
   const [surpriseForm, setSurpriseForm] = useState({ title: '', preview_hint: '', secret_content: '', badge: 'Surprise' });
   const [surpriseLoading, setSurpriseLoading] = useState(false);
 
-  // Music upload state
+  // Music state
+  const [musicSourceType, setMusicSourceType] = useState('file'); // 'file' | 'url'
   const [musicTitle, setMusicTitle] = useState('');
   const [musicFile, setMusicFile] = useState(null);
+  const [musicUrl, setMusicUrl] = useState('');
+  const [musicPreviewUrl, setMusicPreviewUrl] = useState('');
   const [musicLoading, setMusicLoading] = useState(false);
+  const [musicSuccessMsg, setMusicSuccessMsg] = useState('');
 
   // Password change state
   const [oldPassword, setOldPassword] = useState('');
@@ -242,31 +246,161 @@ export default function AdminDashboard({ isOpen, onClose, onRefreshData, profile
   };
 
   // Music management
-  const handleUploadMusic = async (e) => {
+  const handleMusicFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setMusicFile(file);
+      if (!musicTitle) {
+        const baseName = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
+        setMusicTitle(baseName.charAt(0).toUpperCase() + baseName.slice(1));
+      }
+      try {
+        const preview = URL.createObjectURL(file);
+        setMusicPreviewUrl(preview);
+      } catch (err) {
+        console.warn("Could not create object URL", err);
+      }
+    }
+  };
+
+  const handleApplyMusic = async (e) => {
     e.preventDefault();
-    if (!musicFile || !musicTitle.trim()) return;
-
     setMusicLoading(true);
-    try {
-      const formData = new FormData();
-      formData.append('title', musicTitle);
-      formData.append('file', musicFile);
-      formData.append('set_active', 'true');
+    setMusicSuccessMsg('');
 
-      await api.uploadMusic(formData);
-      setMusicTitle('');
-      setMusicFile(null);
+    try {
+      const chosenTitle = musicTitle.trim() || 'Custom Birthday Melody';
+      let appliedPath = '';
+
+      if (musicSourceType === 'file') {
+        if (!musicFile) {
+          alert('Please select an audio file first.');
+          setMusicLoading(false);
+          return;
+        }
+
+        // Try backend upload
+        try {
+          const formData = new FormData();
+          formData.append('title', chosenTitle);
+          formData.append('file', musicFile);
+          formData.append('set_active', 'true');
+          const res = await api.uploadMusic(formData);
+          appliedPath = res.file_path;
+        } catch (apiErr) {
+          console.warn('Backend music upload failed, using local browser audio', apiErr);
+          appliedPath = musicPreviewUrl || URL.createObjectURL(musicFile);
+        }
+
+        // Read file as Data URL to store in localStorage for offline/serverless resilience
+        const saveLocally = () => {
+          return new Promise((resolve) => {
+            if (musicFile.size < 8 * 1024 * 1024) {
+              const reader = new FileReader();
+              reader.onload = (re) => {
+                const dataUrl = re.target.result;
+                const trackObj = {
+                  id: 'custom-' + Date.now(),
+                  title: chosenTitle,
+                  file_path: dataUrl,
+                  duration: 'Custom',
+                  is_active: true
+                };
+                localStorage.setItem('custom_birthday_audio', JSON.stringify(trackObj));
+                window.dispatchEvent(new CustomEvent('custom-audio-updated', { detail: trackObj }));
+                resolve();
+              };
+              reader.onerror = () => {
+                const trackObj = {
+                  id: 'custom-' + Date.now(),
+                  title: chosenTitle,
+                  file_path: appliedPath,
+                  duration: 'Custom',
+                  is_active: true
+                };
+                localStorage.setItem('custom_birthday_audio', JSON.stringify(trackObj));
+                window.dispatchEvent(new CustomEvent('custom-audio-updated', { detail: trackObj }));
+                resolve();
+              };
+              reader.readAsDataURL(musicFile);
+            } else {
+              const trackObj = {
+                id: 'custom-' + Date.now(),
+                title: chosenTitle,
+                file_path: appliedPath,
+                duration: 'Custom',
+                is_active: true
+              };
+              localStorage.setItem('custom_birthday_audio', JSON.stringify(trackObj));
+              window.dispatchEvent(new CustomEvent('custom-audio-updated', { detail: trackObj }));
+              resolve();
+            }
+          });
+        };
+
+        await saveLocally();
+      } else {
+        // Direct URL
+        if (!musicUrl.trim()) {
+          alert('Please enter a valid audio URL.');
+          setMusicLoading(false);
+          return;
+        }
+
+        try {
+          await api.setMusicUrl(chosenTitle, musicUrl.trim());
+        } catch (err) {
+          console.warn('Backend set-url warning:', err);
+        }
+
+        const trackObj = {
+          id: 'url-' + Date.now(),
+          title: chosenTitle,
+          file_path: musicUrl.trim(),
+          duration: 'Custom',
+          is_active: true
+        };
+        localStorage.setItem('custom_birthday_audio', JSON.stringify(trackObj));
+        window.dispatchEvent(new CustomEvent('custom-audio-updated', { detail: trackObj }));
+      }
+
+      setMusicSuccessMsg(`🎉 "${chosenTitle}" applied as the active birthday music!`);
+      setTimeout(() => setMusicSuccessMsg(''), 5000);
       onRefreshData();
     } catch (err) {
-      alert(err.message || 'Failed to upload music');
+      alert(err.message || 'Failed to apply audio');
     } finally {
       setMusicLoading(false);
     }
   };
 
-  const handleSetActiveMusic = async (id) => {
+  const handleResetDefaultMusic = () => {
+    localStorage.removeItem('custom_birthday_audio');
+    const defaultTrack = {
+      id: 'default',
+      title: 'Joyful Music Box - Happy Birthday',
+      file_path: '/uploads/music/birthday_melody.wav',
+      duration: '1:15',
+      is_active: true
+    };
+    window.dispatchEvent(new CustomEvent('custom-audio-updated', { detail: defaultTrack }));
+    setMusicSuccessMsg('Restored default joyful birthday chime! 🎶');
+    setTimeout(() => setMusicSuccessMsg(''), 4000);
+    onRefreshData();
+  };
+
+  const handleSetActiveMusic = async (track) => {
     try {
-      await api.setActiveTrack(id);
+      localStorage.setItem('custom_birthday_audio', JSON.stringify({
+        ...track,
+        is_active: true
+      }));
+      window.dispatchEvent(new CustomEvent('custom-audio-updated', { detail: track }));
+      if (track.id && typeof track.id === 'number') {
+        await api.setActiveTrack(track.id);
+      }
+      setMusicSuccessMsg(`Switched active track to "${track.title}"!`);
+      setTimeout(() => setMusicSuccessMsg(''), 4000);
       onRefreshData();
     } catch (err) {
       alert(err.message || 'Failed to set active track');
@@ -962,85 +1096,177 @@ export default function AdminDashboard({ isOpen, onClose, onRefreshData, profile
                       Background Birthday Music
                     </h4>
                     <p className="text-xs text-purple-200/60">
-                      Upload audio files (.mp3, .wav, .m4a) and choose which melody plays.
+                      Apply any song from your device, upload an audio file (.mp3, .wav, .m4a), or use an audio URL.
                     </p>
                   </div>
 
-                  <form onSubmit={handleUploadMusic} className="p-5 rounded-2xl glass-card border border-pink-400/30 space-y-4">
+                  {musicSuccessMsg && (
+                    <div className="p-3.5 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 text-xs font-semibold flex items-center gap-2 shadow-md">
+                      <Sparkles className="w-4 h-4 text-emerald-300 flex-shrink-0" />
+                      <span>{musicSuccessMsg}</span>
+                    </div>
+                  )}
+
+                  {/* Mode Selector: File vs URL */}
+                  <div className="flex items-center gap-2 bg-black/30 p-1.5 rounded-2xl border border-white/10 max-w-sm">
+                    <button
+                      type="button"
+                      onClick={() => setMusicSourceType('file')}
+                      className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-semibold transition-all ${
+                        musicSourceType === 'file'
+                          ? 'bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow'
+                          : 'text-white/60 hover:text-white'
+                      }`}
+                    >
+                      📁 Audio File
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMusicSourceType('url')}
+                      className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-semibold transition-all ${
+                        musicSourceType === 'url'
+                          ? 'bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow'
+                          : 'text-white/60 hover:text-white'
+                      }`}
+                    >
+                      🌐 Audio Link (URL)
+                    </button>
+                  </div>
+
+                  {/* Music Form */}
+                  <form onSubmit={handleApplyMusic} className="p-5 sm:p-6 rounded-2xl glass-card border border-pink-400/30 space-y-4">
                     <h5 className="text-xs font-bold text-pink-300 uppercase tracking-wider">
-                      Upload New Birthday Melody
+                      {musicSourceType === 'file' ? 'Apply Audio File from Computer / Phone' : 'Apply Direct Audio Web Link'}
                     </h5>
 
                     <div>
-                      <label className="block text-xs text-purple-200/80 mb-1">Track Title</label>
+                      <label className="block text-xs text-purple-200/80 mb-1">Song / Track Title</label>
                       <input
                         type="text"
                         required
-                        placeholder="e.g. Acoustic Birthday Lullaby"
+                        placeholder="e.g. Favorite Birthday Song"
                         value={musicTitle}
                         onChange={(e) => setMusicTitle(e.target.value)}
-                        className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/20 text-white text-sm focus:outline-none focus:border-pink-400"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/20 text-white text-sm focus:outline-none focus:border-pink-400"
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-xs text-purple-200/80 mb-1">Audio File (.mp3, .wav)</label>
-                      <input
-                        type="file"
-                        required
-                        accept="audio/mp3,audio/wav,audio/mpeg,audio/ogg"
-                        onChange={(e) => setMusicFile(e.target.files[0])}
-                        className="w-full text-xs text-purple-200 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-pink-500/20 file:text-pink-300 hover:file:bg-pink-500/30 cursor-pointer"
-                      />
-                    </div>
+                    {musicSourceType === 'file' ? (
+                      <div>
+                        <label className="block text-xs text-purple-200/80 mb-1">
+                          Select Audio File (.mp3, .wav, .m4a, .aac, .ogg)
+                        </label>
+                        <input
+                          type="file"
+                          required
+                          accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac"
+                          onChange={handleMusicFileChange}
+                          className="w-full text-xs text-purple-200 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-pink-500/20 file:text-pink-300 hover:file:bg-pink-500/30 cursor-pointer border border-white/10 rounded-xl p-2 bg-black/20"
+                        />
+                        <p className="text-[11px] text-purple-300/60 mt-1.5">
+                          💡 Tip: Works with MP3, WAV, M4A, AAC, OGG. Plays instantly across your website!
+                        </p>
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="block text-xs text-purple-200/80 mb-1">
+                          Direct Audio Link (MP3 / WAV URL)
+                        </label>
+                        <input
+                          type="url"
+                          required
+                          placeholder="https://example.com/audio/song.mp3"
+                          value={musicUrl}
+                          onChange={(e) => {
+                            setMusicUrl(e.target.value);
+                            setMusicPreviewUrl(e.target.value);
+                          }}
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/20 text-white text-sm focus:outline-none focus:border-pink-400 font-mono text-xs"
+                        />
+                        <p className="text-[11px] text-purple-300/60 mt-1.5">
+                          Paste any direct audio link from a hosting provider, Dropbox direct link, or CDN.
+                        </p>
+                      </div>
+                    )}
 
-                    <button
-                      type="submit"
-                      disabled={musicLoading}
-                      className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold text-xs shadow-md transition-all flex items-center gap-2"
-                    >
-                      <Upload className="w-4 h-4" />
-                      <span>{musicLoading ? "Uploading track..." : "Upload & Set Active"}</span>
-                    </button>
+                    {/* Audio Preview Player */}
+                    {musicPreviewUrl && (
+                      <div className="p-3 rounded-xl bg-black/40 border border-white/10 flex flex-col gap-1.5">
+                        <span className="text-[11px] text-pink-300 font-semibold flex items-center gap-1.5">
+                          <Music className="w-3.5 h-3.5" />
+                          <span>Preview Audio Before Applying:</span>
+                        </span>
+                        <audio
+                          controls
+                          src={musicPreviewUrl}
+                          className="w-full h-8 mt-1 accent-pink-500"
+                        />
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-3 pt-2">
+                      <button
+                        type="submit"
+                        disabled={musicLoading}
+                        className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 text-white font-bold text-xs shadow-lg shadow-pink-500/30 hover:opacity-90 disabled:opacity-50 transition-all flex items-center gap-2"
+                      >
+                        <Upload className="w-4 h-4" />
+                        <span>{musicLoading ? "Applying Audio..." : "Set as Active Birthday Song"}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleResetDefaultMusic}
+                        className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-pink-200 text-xs font-semibold transition-all"
+                      >
+                        Reset to Default Chime
+                      </button>
+                    </div>
                   </form>
 
-                  {/* Existing tracks list */}
+                  {/* Available Tracks List */}
                   <div className="space-y-3">
                     <h5 className="text-xs font-bold text-purple-200 uppercase tracking-wider">
-                      Available Music Tracks ({tracks.length})
+                      Celebration Playlist ({tracks.length})
                     </h5>
 
-                    {tracks.map((t) => (
-                      <div key={t.id} className="p-4 rounded-2xl glass-card border border-white/10 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-xl ${t.is_active ? 'bg-pink-500 text-white' : 'bg-white/10 text-white/60'}`}>
-                            <Music className="w-4 h-4" />
+                    <div className="space-y-2">
+                      {tracks.map((t) => (
+                        <div key={t.id} className="p-3.5 rounded-2xl glass-card border border-white/10 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2.5 rounded-xl ${t.is_active ? 'bg-pink-500 text-white shadow-md shadow-pink-500/30' : 'bg-white/10 text-white/60'}`}>
+                              <Music className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <span className="text-xs sm:text-sm font-semibold text-white block">{t.title}</span>
+                              <span className="text-[10px] text-purple-300/70 block">
+                                {t.duration} • {t.is_active ? '✨ Active on Website' : 'Inactive'}
+                              </span>
+                            </div>
                           </div>
-                          <div>
-                            <span className="text-sm font-semibold text-white block">{t.title}</span>
-                            <span className="text-xs text-purple-300/60 block">{t.duration} • {t.is_active ? 'Currently Active' : 'Inactive'}</span>
-                          </div>
-                        </div>
 
-                        <div className="flex items-center gap-2">
-                          {!t.is_active && (
-                            <button
-                              onClick={() => handleSetActiveMusic(t.id)}
-                              className="px-3 py-1.5 rounded-lg bg-pink-500/20 hover:bg-pink-500/40 text-pink-300 text-xs font-medium"
-                            >
-                              Set Active
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleDeleteMusic(t.id)}
-                            className="p-1.5 rounded-lg bg-red-500/20 text-red-300 hover:bg-red-500/30"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <div className="flex items-center gap-2">
+                            {!t.is_active && (
+                              <button
+                                onClick={() => handleSetActiveMusic(t)}
+                                className="px-3 py-1.5 rounded-xl bg-pink-500/20 hover:bg-pink-500/40 text-pink-300 text-xs font-semibold transition-all border border-pink-400/30"
+                              >
+                                Set Active
+                              </button>
+                            )}
+                            {t.id !== 'default' && (
+                              <button
+                                onClick={() => handleDeleteMusic(t.id)}
+                                className="p-1.5 rounded-xl bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-all"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}

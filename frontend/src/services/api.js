@@ -257,6 +257,19 @@ export const api = {
     return res.json();
   },
 
+  async setMusicUrl(title, url) {
+    const res = await fetch(`${API_BASE}/music/set-url`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      },
+      body: JSON.stringify({ title, url, set_active: true })
+    });
+    if (!res.ok) throw new Error('Failed to set music URL');
+    return res.json();
+  },
+
   async setActiveTrack(trackId) {
     const res = await fetch(`${API_BASE}/music/active/${trackId}`, {
       method: 'PUT',

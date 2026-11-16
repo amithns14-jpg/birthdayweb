@@ -10,13 +10,74 @@ export default function MusicPlayer({ activeTrack, tracks = [], autoPlayTrigger 
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [showTrackList, setShowTrackList] = useState(false);
-  const [currentTrack, setCurrentTrack] = useState(activeTrack);
+  const [currentTrack, setCurrentTrack] = useState(null);
+  const [hasError, setHasError] = useState(false);
 
-  useEffect(() => {
+  // Load custom audio from localStorage or activeTrack
+  const syncActiveTrack = () => {
+    try {
+      const saved = localStorage.getItem('custom_birthday_audio');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.file_path) {
+          setCurrentTrack(parsed);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn("Could not parse saved custom audio", e);
+    }
+
     if (activeTrack) {
       setCurrentTrack(activeTrack);
+    } else {
+      setCurrentTrack({
+        id: 'default',
+        title: 'Joyful Music Box - Happy Birthday',
+        file_path: '/uploads/music/birthday_melody.wav',
+        duration: '1:15'
+      });
     }
+  };
+
+  useEffect(() => {
+    syncActiveTrack();
   }, [activeTrack]);
+
+  // Listen for real-time audio update events from Admin Studio
+  useEffect(() => {
+    const handleAudioUpdate = (e) => {
+      if (e.detail) {
+        setCurrentTrack(e.detail);
+        setIsPlaying(true);
+        setTimeout(() => {
+          if (audioRef.current) {
+            audioRef.current.load();
+            audioRef.current.play().catch(() => {});
+          }
+        }, 150);
+      } else {
+        syncActiveTrack();
+      }
+    };
+    window.addEventListener('custom-audio-updated', handleAudioUpdate);
+    return () => window.removeEventListener('custom-audio-updated', handleAudioUpdate);
+  }, []);
+
+  const audioSrc = currentTrack?.file_path || '/uploads/music/birthday_melody.wav';
+
+  // Whenever audioSrc changes, explicitly reload audio
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.load();
+      if (isPlaying) {
+        audioRef.current.play().catch((err) => {
+          console.log("Audio play interrupted:", err);
+        });
+      }
+    }
+    setHasError(false);
+  }, [audioSrc]);
 
   // When autoPlayTrigger changes (e.g. user clicked "Open Your Surprise"), trigger play
   useEffect(() => {
@@ -83,24 +144,42 @@ export default function MusicPlayer({ activeTrack, tracks = [], autoPlayTrigger 
 
   const selectTrack = (track) => {
     setCurrentTrack(track);
+    try {
+      localStorage.setItem('custom_birthday_audio', JSON.stringify(track));
+    } catch {}
     setShowTrackList(false);
     setTimeout(() => {
       if (audioRef.current) {
-        audioRef.current.play().then(() => setIsPlaying(true));
+        audioRef.current.load();
+        audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
       }
     }, 100);
   };
 
-  const audioSrc = currentTrack?.file_path || '/uploads/music/birthday_melody.wav';
+  const handleAudioError = (e) => {
+    console.warn("Audio failed to load from:", audioSrc, e);
+    setHasError(true);
+    // If custom audio fails to load, gracefully fallback to default melody
+    if (audioSrc !== '/uploads/music/birthday_melody.wav') {
+      setCurrentTrack({
+        id: 'default',
+        title: 'Joyful Music Box (Fallback)',
+        file_path: '/uploads/music/birthday_melody.wav',
+        duration: '1:15'
+      });
+    }
+  };
 
   return (
     <>
       <audio
+        key={audioSrc}
         ref={audioRef}
         src={audioSrc}
         loop
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleTimeUpdate}
+        onError={handleAudioError}
         onEnded={() => setIsPlaying(false)}
       />
 
@@ -140,7 +219,7 @@ export default function MusicPlayer({ activeTrack, tracks = [], autoPlayTrigger 
                   {currentTrack?.title || "Happy Birthday Melody"}
                 </span>
                 <span className="text-[10px] text-pink-300 block">
-                  {isPlaying ? 'Playing joyful melody 🎶' : 'Paused'}
+                  {hasError ? 'Using fallback melody' : isPlaying ? 'Playing joyful melody 🎶' : 'Paused (Click to play)'}
                 </span>
               </div>
 
@@ -185,7 +264,7 @@ export default function MusicPlayer({ activeTrack, tracks = [], autoPlayTrigger 
               )}
             </button>
 
-            {tracks.length > 1 && (
+            {tracks.length > 0 && (
               <button
                 onClick={() => setShowTrackList(!showTrackList)}
                 className="p-1.5 rounded-full hover:bg-white/10 text-white/80 hover:text-white transition-colors"
@@ -215,7 +294,7 @@ export default function MusicPlayer({ activeTrack, tracks = [], autoPlayTrigger 
                     key={t.id}
                     onClick={() => selectTrack(t)}
                     className={`w-full text-left px-2.5 py-1.5 rounded-xl text-xs flex items-center justify-between transition-colors ${
-                      currentTrack?.id === t.id
+                      currentTrack?.id === t.id || currentTrack?.file_path === t.file_path
                         ? 'bg-pink-500/30 text-white font-semibold'
                         : 'text-white/70 hover:bg-white/10'
                     }`}
