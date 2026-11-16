@@ -7,6 +7,7 @@ except ImportError:
 
 class Admin(Base):
     __tablename__ = "admins"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, index=True, nullable=False)
@@ -15,6 +16,7 @@ class Admin(Base):
 
 class BirthdayProfile(Base):
     __tablename__ = "birthday_profile"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, index=True)
     person_name = Column(String(100), default="Precious One", nullable=False)
@@ -31,6 +33,7 @@ class BirthdayProfile(Base):
 
 class Photo(Base):
     __tablename__ = "photos"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, index=True)
     file_path = Column(String(255), nullable=False)
@@ -42,6 +45,7 @@ class Photo(Base):
 
 class BirthdayMessage(Base):
     __tablename__ = "birthday_messages"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, index=True)
     sender_name = Column(String(100), nullable=False)
@@ -52,6 +56,7 @@ class BirthdayMessage(Base):
 
 class Memory(Base):
     __tablename__ = "memories"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(150), nullable=False)
@@ -63,6 +68,7 @@ class Memory(Base):
 
 class SurpriseItem(Base):
     __tablename__ = "surprise_items"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(150), nullable=False)
@@ -75,6 +81,7 @@ class SurpriseItem(Base):
 
 class MusicSetting(Base):
     __tablename__ = "music_settings"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(150), nullable=False)

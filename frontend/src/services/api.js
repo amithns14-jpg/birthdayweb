@@ -89,8 +89,15 @@ export const api = {
       body: formData
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: 'Upload failed' }));
-      throw new Error(err.detail || 'Upload failed');
+      let detailMsg = 'Upload failed';
+      try {
+        const err = await res.json();
+        if (typeof err.detail === 'string') detailMsg = err.detail;
+        else if (Array.isArray(err.detail)) detailMsg = err.detail.map(d => d.msg || JSON.stringify(d)).join('; ');
+      } catch (e) {
+        detailMsg = `Server error (${res.status}: ${res.statusText || 'Upload failed'})`;
+      }
+      throw new Error(detailMsg);
     }
     return res.json();
   },
@@ -253,7 +260,17 @@ export const api = {
       headers: getAuthHeaders(),
       body: formData
     });
-    if (!res.ok) throw new Error('Failed to upload music');
+    if (!res.ok) {
+      let detailMsg = 'Failed to upload music';
+      try {
+        const err = await res.json();
+        if (typeof err.detail === 'string') detailMsg = err.detail;
+        else if (Array.isArray(err.detail)) detailMsg = err.detail.map(d => d.msg || JSON.stringify(d)).join('; ');
+      } catch (e) {
+        detailMsg = `Server error (${res.status}: ${res.statusText || 'Upload failed'})`;
+      }
+      throw new Error(detailMsg);
+    }
     return res.json();
   },
 

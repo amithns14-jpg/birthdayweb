@@ -91,11 +91,16 @@ async def upload_music(
     with open(destination, "wb") as buffer:
         buffer.write(content)
 
-    # Also synchronize to frontend/public/uploads/music if directory exists
+    # Also synchronize to frontend/public/uploads/music and frontend/public/audio/birthday_song.mp3
     try:
         frontend_public_music = os.path.abspath(os.path.join(BASE_DIR, "..", "frontend", "public", "uploads", "music"))
         if os.path.exists(frontend_public_music):
             shutil.copyfile(destination, os.path.join(frontend_public_music, unique_name))
+
+        if set_active:
+            frontend_audio = os.path.abspath(os.path.join(BASE_DIR, "..", "frontend", "public", "audio", "birthday_song.mp3"))
+            if os.path.exists(os.path.dirname(frontend_audio)):
+                shutil.copyfile(destination, frontend_audio)
     except Exception:
         pass
 

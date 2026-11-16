@@ -17,9 +17,14 @@ except ImportError:
 
 router = APIRouter(prefix="/api/photos", tags=["Photos"])
 
-ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".jfif", ".avif", ".bmp"}
 MAX_FILE_SIZE = 15 * 1024 * 1024 # 15 MB
-UPLOAD_DIR = os.path.join(BASE_DIR, "uploads", "photos")
+
+if os.getenv("VERCEL"):
+    UPLOAD_DIR = os.path.join("/tmp", "uploads", "photos")
+else:
+    UPLOAD_DIR = os.path.join(BASE_DIR, "uploads", "photos")
+
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.get("", response_model=List[PhotoResponse])
@@ -43,26 +48,29 @@ async def upload_photos(
         if ext not in ALLOWED_EXTENSIONS:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Unsupported file type '{ext}'. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
+                detail=f"Unsupported file type '{ext}'. Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
             )
 
         unique_name = f"{uuid.uuid4().hex}{ext}"
         destination = os.path.join(UPLOAD_DIR, unique_name)
 
-        # Write file with size limit check
-        size = 0
+        content = await file.read()
+        if len(content) > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File {file.filename} exceeds maximum size limit of 15MB"
+            )
+
         with open(destination, "wb") as buffer:
-            while chunk := await file.read(1024 * 1024):
-                size += len(chunk)
-                if size > MAX_FILE_SIZE:
-                    buffer.close()
-                    if os.path.exists(destination):
-                        os.remove(destination)
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"File {file.filename} exceeds maximum size limit of 15MB"
-                    )
-                buffer.write(chunk)
+            buffer.write(content)
+
+        # Synchronize to frontend/public/uploads/photos if it exists
+        try:
+            frontend_photos = os.path.abspath(os.path.join(BASE_DIR, "..", "frontend", "public", "uploads", "photos"))
+            if os.path.exists(frontend_photos):
+                shutil.copyfile(destination, os.path.join(frontend_photos, unique_name))
+        except Exception:
+            pass
 
         caption_val = captions[idx] if captions and idx < len(captions) else ""
         photo_record = Photo(

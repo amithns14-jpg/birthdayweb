@@ -16,9 +16,14 @@ except ImportError:
 
 router = APIRouter(prefix="/api/memories", tags=["Memories"])
 
-UPLOAD_DIR = os.path.join(BASE_DIR, "uploads", "memories")
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".jfif", ".avif", ".bmp"}
+
+if os.getenv("VERCEL"):
+    UPLOAD_DIR = os.path.join("/tmp", "uploads", "memories")
+else:
+    UPLOAD_DIR = os.path.join(BASE_DIR, "uploads", "memories")
+
 os.makedirs(UPLOAD_DIR, exist_ok=True)
-ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 
 @router.get("", response_model=List[MemoryResponse])
 def get_memories(db: Session = Depends(get_db)):
@@ -44,6 +49,14 @@ async def create_memory(
                 shutil_copy = await image.read()
                 buffer.write(shutil_copy)
             image_path = f"/uploads/memories/{unique_name}"
+
+            # Synchronize to frontend/public/uploads/memories if it exists
+            try:
+                frontend_memories = os.path.abspath(os.path.join(BASE_DIR, "..", "frontend", "public", "uploads", "memories"))
+                if os.path.exists(frontend_memories):
+                    shutil.copyfile(destination, os.path.join(frontend_memories, unique_name))
+            except Exception:
+                pass
 
     memory = Memory(
         title=title,
