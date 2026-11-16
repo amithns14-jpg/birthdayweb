@@ -165,10 +165,10 @@ def init_seed_data(db: Session):
     if db.query(MusicSetting).count() == 0:
         sample_music = [
             MusicSetting(
-                title="Joyful Music Box - Happy Birthday",
-                file_path="/uploads/music/birthday_melody.wav",
+                title="Happy Birthday Celebration Melody",
+                file_path="/audio/birthday_song.mp3",
                 is_active=True,
-                duration="1:15"
+                duration="Celebration"
             )
         ]
         db.add_all(sample_music)

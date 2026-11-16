@@ -1,0 +1,22 @@
+========================================================================
+🎵 HOW TO APPLY YOUR OWN SONG ON GITHUB 🎵
+========================================================================
+
+Want your own song to play on the website for everyone visiting?
+
+METHOD 1: REPLACE THIS FILE ON GITHUB (EASIEST)
+1. In your GitHub repository:
+   Navigate to: frontend/public/audio/
+2. Click "Add file" -> "Upload files".
+3. Select your song from your computer (.mp3, .wav, or .m4a).
+4. Name the uploaded file: birthday_song.mp3 (replacing this file).
+5. Commit changes to main!
+That's it! When Vercel or your web host builds, everyone will hear your song!
+
+METHOD 2: USE A WEB LINK (DROPBOX / DRIVE / CDN)
+1. Edit: frontend/src/config/audioConfig.js
+2. Change:
+   src: "https://your-domain.com/your-favorite-song.mp3"
+3. Commit to main!
+
+========================================================================

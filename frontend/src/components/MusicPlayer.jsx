@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, Volume2, VolumeX, Music, Disc3, ListMusic } from 'lucide-react';
+import DEFAULT_AUDIO_CONFIG from '../config/audioConfig';
+import { loadCustomAudioTrack } from '../utils/audioStorage';
 
 export default function MusicPlayer({ activeTrack, tracks = [], autoPlayTrigger }) {
   const audioRef = useRef(null);
@@ -13,8 +15,20 @@ export default function MusicPlayer({ activeTrack, tracks = [], autoPlayTrigger 
   const [currentTrack, setCurrentTrack] = useState(null);
   const [hasError, setHasError] = useState(false);
 
-  // Load custom audio from localStorage or activeTrack
-  const syncActiveTrack = () => {
+  // Load custom audio from IndexedDB, localStorage, backend API, or GitHub config
+  const syncActiveTrack = async () => {
+    // 1. Check IndexedDB for user custom audio saved in browser
+    try {
+      const dbTrack = await loadCustomAudioTrack();
+      if (dbTrack && dbTrack.file_path) {
+        setCurrentTrack(dbTrack);
+        return;
+      }
+    } catch (e) {
+      console.warn("Could not load from IndexedDB", e);
+    }
+
+    // 2. Check localStorage fallback
     try {
       const saved = localStorage.getItem('custom_birthday_audio');
       if (saved) {
@@ -28,16 +42,19 @@ export default function MusicPlayer({ activeTrack, tracks = [], autoPlayTrigger 
       console.warn("Could not parse saved custom audio", e);
     }
 
-    if (activeTrack) {
+    // 3. Check activeTrack from API (if custom audio set in backend)
+    if (activeTrack && activeTrack.file_path && activeTrack.file_path !== '/uploads/music/birthday_melody.wav') {
       setCurrentTrack(activeTrack);
-    } else {
-      setCurrentTrack({
-        id: 'default',
-        title: 'Joyful Music Box - Happy Birthday',
-        file_path: '/uploads/music/birthday_melody.wav',
-        duration: '1:15'
-      });
+      return;
     }
+
+    // 4. Use GitHub DEFAULT_AUDIO_CONFIG
+    setCurrentTrack({
+      id: 'default-config',
+      title: DEFAULT_AUDIO_CONFIG.title || 'Happy Birthday Melody',
+      file_path: DEFAULT_AUDIO_CONFIG.src || '/audio/birthday_song.mp3',
+      duration: DEFAULT_AUDIO_CONFIG.duration || 'Celebration'
+    });
   };
 
   useEffect(() => {
@@ -64,7 +81,7 @@ export default function MusicPlayer({ activeTrack, tracks = [], autoPlayTrigger 
     return () => window.removeEventListener('custom-audio-updated', handleAudioUpdate);
   }, []);
 
-  const audioSrc = currentTrack?.file_path || '/uploads/music/birthday_melody.wav';
+  const audioSrc = currentTrack?.file_path || DEFAULT_AUDIO_CONFIG.src || '/audio/birthday_song.mp3';
 
   // Whenever audioSrc changes, explicitly reload audio
   useEffect(() => {
@@ -159,12 +176,13 @@ export default function MusicPlayer({ activeTrack, tracks = [], autoPlayTrigger 
   const handleAudioError = (e) => {
     console.warn("Audio failed to load from:", audioSrc, e);
     setHasError(true);
-    // If custom audio fails to load, gracefully fallback to default melody
-    if (audioSrc !== '/uploads/music/birthday_melody.wav') {
+    // If custom audio fails to load, gracefully fallback to secondary fallback
+    const fallback = DEFAULT_AUDIO_CONFIG.fallbackSrc || '/uploads/music/birthday_melody.wav';
+    if (audioSrc !== fallback) {
       setCurrentTrack({
-        id: 'default',
-        title: 'Joyful Music Box (Fallback)',
-        file_path: '/uploads/music/birthday_melody.wav',
+        id: 'fallback',
+        title: (DEFAULT_AUDIO_CONFIG.title || 'Happy Birthday') + ' (Chime)',
+        file_path: fallback,
         duration: '1:15'
       });
     }

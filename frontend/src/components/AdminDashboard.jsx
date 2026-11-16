@@ -6,6 +6,8 @@ import {
   KeyRound, Eye, Plus, Sparkles
 } from 'lucide-react';
 import { api } from '../services/api';
+import DEFAULT_AUDIO_CONFIG from '../config/audioConfig';
+import { saveCustomAudioTrack, clearCustomAudioTrack } from '../utils/audioStorage';
 
 export default function AdminDashboard({ isOpen, onClose, onRefreshData, profile, photos, memories, surprises, tracks }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -279,7 +281,7 @@ export default function AdminDashboard({ isOpen, onClose, onRefreshData, profile
           return;
         }
 
-        // Try backend upload
+        // Try backend upload if backend is accessible
         try {
           const formData = new FormData();
           formData.append('title', chosenTitle);
@@ -292,53 +294,33 @@ export default function AdminDashboard({ isOpen, onClose, onRefreshData, profile
           appliedPath = musicPreviewUrl || URL.createObjectURL(musicFile);
         }
 
-        // Read file as Data URL to store in localStorage for offline/serverless resilience
-        const saveLocally = () => {
-          return new Promise((resolve) => {
-            if (musicFile.size < 8 * 1024 * 1024) {
-              const reader = new FileReader();
-              reader.onload = (re) => {
-                const dataUrl = re.target.result;
-                const trackObj = {
-                  id: 'custom-' + Date.now(),
-                  title: chosenTitle,
-                  file_path: dataUrl,
-                  duration: 'Custom',
-                  is_active: true
-                };
-                localStorage.setItem('custom_birthday_audio', JSON.stringify(trackObj));
-                window.dispatchEvent(new CustomEvent('custom-audio-updated', { detail: trackObj }));
-                resolve();
-              };
-              reader.onerror = () => {
-                const trackObj = {
-                  id: 'custom-' + Date.now(),
-                  title: chosenTitle,
-                  file_path: appliedPath,
-                  duration: 'Custom',
-                  is_active: true
-                };
-                localStorage.setItem('custom_birthday_audio', JSON.stringify(trackObj));
-                window.dispatchEvent(new CustomEvent('custom-audio-updated', { detail: trackObj }));
-                resolve();
-              };
-              reader.readAsDataURL(musicFile);
-            } else {
-              const trackObj = {
-                id: 'custom-' + Date.now(),
-                title: chosenTitle,
-                file_path: appliedPath,
-                duration: 'Custom',
-                is_active: true
-              };
-              localStorage.setItem('custom_birthday_audio', JSON.stringify(trackObj));
-              window.dispatchEvent(new CustomEvent('custom-audio-updated', { detail: trackObj }));
-              resolve();
-            }
-          });
+        const playableUrl = musicPreviewUrl || (appliedPath && appliedPath.startsWith('blob:') ? appliedPath : URL.createObjectURL(musicFile));
+
+        const trackObj = {
+          id: 'custom-' + Date.now(),
+          title: chosenTitle,
+          file_path: playableUrl,
+          duration: 'Custom',
+          is_active: true
         };
 
-        await saveLocally();
+        // Save into IndexedDB (supports any file size without 5MB quota errors)
+        await saveCustomAudioTrack(trackObj, musicFile);
+
+        // Safe localStorage update (non-blocking, won't throw QuotaExceeded error)
+        try {
+          localStorage.setItem('custom_birthday_audio', JSON.stringify({
+            id: trackObj.id,
+            title: trackObj.title,
+            file_path: appliedPath,
+            duration: trackObj.duration,
+            is_active: true
+          }));
+        } catch (e) {
+          console.warn('localStorage quota reached, IndexedDB used', e);
+        }
+
+        window.dispatchEvent(new CustomEvent('custom-audio-updated', { detail: trackObj }));
       } else {
         // Direct URL
         if (!musicUrl.trim()) {
@@ -360,7 +342,15 @@ export default function AdminDashboard({ isOpen, onClose, onRefreshData, profile
           duration: 'Custom',
           is_active: true
         };
-        localStorage.setItem('custom_birthday_audio', JSON.stringify(trackObj));
+
+        await saveCustomAudioTrack(trackObj, musicUrl.trim());
+
+        try {
+          localStorage.setItem('custom_birthday_audio', JSON.stringify(trackObj));
+        } catch (e) {
+          // ignore
+        }
+
         window.dispatchEvent(new CustomEvent('custom-audio-updated', { detail: trackObj }));
       }
 
@@ -374,17 +364,17 @@ export default function AdminDashboard({ isOpen, onClose, onRefreshData, profile
     }
   };
 
-  const handleResetDefaultMusic = () => {
-    localStorage.removeItem('custom_birthday_audio');
+  const handleResetDefaultMusic = async () => {
+    await clearCustomAudioTrack();
     const defaultTrack = {
       id: 'default',
-      title: 'Joyful Music Box - Happy Birthday',
-      file_path: '/uploads/music/birthday_melody.wav',
-      duration: '1:15',
+      title: DEFAULT_AUDIO_CONFIG.title || 'Happy Birthday Melody',
+      file_path: DEFAULT_AUDIO_CONFIG.src || '/audio/birthday_song.mp3',
+      duration: DEFAULT_AUDIO_CONFIG.duration || 'Celebration',
       is_active: true
     };
     window.dispatchEvent(new CustomEvent('custom-audio-updated', { detail: defaultTrack }));
-    setMusicSuccessMsg('Restored default joyful birthday chime! 🎶');
+    setMusicSuccessMsg('Restored celebration music! 🎶');
     setTimeout(() => setMusicSuccessMsg(''), 4000);
     onRefreshData();
   };
@@ -1108,6 +1098,13 @@ export default function AdminDashboard({ isOpen, onClose, onRefreshData, profile
                   )}
 
                   {/* Mode Selector: File vs URL */}
+                  <div className="p-3 rounded-2xl bg-gradient-to-r from-purple-900/40 to-pink-900/40 border border-purple-400/30 text-xs text-purple-200">
+                    <p className="font-semibold text-white mb-0.5">🚀 Permanent Song on GitHub & Vercel:</p>
+                    <p className="text-[11px] text-purple-200/80">
+                      You can drop your <code className="bg-black/40 px-1 py-0.5 rounded text-pink-300">birthday_song.mp3</code> into <code className="bg-black/40 px-1 py-0.5 rounded text-pink-300">frontend/public/audio/</code> on GitHub, or paste any audio web URL below!
+                    </p>
+                  </div>
+
                   <div className="flex items-center gap-2 bg-black/30 p-1.5 rounded-2xl border border-white/10 max-w-sm">
                     <button
                       type="button"
