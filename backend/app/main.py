@@ -1,20 +1,42 @@
 import os
+import sys
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from backend.app.database import engine, Base, SessionLocal, BASE_DIR
-from backend.app.services.seed_data import init_seed_data
-from backend.app.routers import (
-    auth,
-    profile,
-    photos,
-    memories,
-    surprises,
-    messages,
-    music
-)
+# Ensure proper path resolution
+current_dir = os.path.dirname(os.path.abspath(__file__)) # .../backend/app
+backend_dir = os.path.dirname(current_dir) # .../backend
+root_dir = os.path.dirname(backend_dir) # .../
+for d in [backend_dir, root_dir]:
+    if d not in sys.path:
+        sys.path.insert(0, d)
+
+try:
+    from app.database import engine, Base, SessionLocal, BASE_DIR
+    from app.services.seed_data import init_seed_data
+    from app.routers import (
+        auth,
+        profile,
+        photos,
+        memories,
+        surprises,
+        messages,
+        music
+    )
+except ImportError:
+    from backend.app.database import engine, Base, SessionLocal, BASE_DIR
+    from backend.app.services.seed_data import init_seed_data
+    from backend.app.routers import (
+        auth,
+        profile,
+        photos,
+        memories,
+        surprises,
+        messages,
+        music
+    )
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -22,14 +44,19 @@ Base.metadata.create_all(bind=engine)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Ensure uploads directory exists
-    os.makedirs(os.path.join(BASE_DIR, "uploads", "photos"), exist_ok=True)
-    os.makedirs(os.path.join(BASE_DIR, "uploads", "music"), exist_ok=True)
-    os.makedirs(os.path.join(BASE_DIR, "uploads", "memories"), exist_ok=True)
+    try:
+        os.makedirs(os.path.join(BASE_DIR, "uploads", "photos"), exist_ok=True)
+        os.makedirs(os.path.join(BASE_DIR, "uploads", "music"), exist_ok=True)
+        os.makedirs(os.path.join(BASE_DIR, "uploads", "memories"), exist_ok=True)
+    except Exception:
+        pass
 
     # Initialize seed data
     db = SessionLocal()
     try:
         init_seed_data(db)
+    except Exception as e:
+        print(f"Seed data warning: {e}")
     finally:
         db.close()
     yield

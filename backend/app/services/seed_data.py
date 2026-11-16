@@ -1,15 +1,27 @@
 import os
 from sqlalchemy.orm import Session
-from backend.app.models.entities import (
-    Admin,
-    BirthdayProfile,
-    Photo,
-    BirthdayMessage,
-    Memory,
-    SurpriseItem,
-    MusicSetting
-)
-from backend.app.security import get_password_hash
+try:
+    from app.models.entities import (
+        Admin,
+        BirthdayProfile,
+        Photo,
+        BirthdayMessage,
+        Memory,
+        SurpriseItem,
+        MusicSetting
+    )
+    from app.security import get_password_hash
+except ImportError:
+    from backend.app.models.entities import (
+        Admin,
+        BirthdayProfile,
+        Photo,
+        BirthdayMessage,
+        Memory,
+        SurpriseItem,
+        MusicSetting
+    )
+    from backend.app.security import get_password_hash
 
 def init_seed_data(db: Session):
     # 1. Admin user

@@ -1,10 +1,16 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from backend.app.database import get_db
-from backend.app.models.entities import BirthdayMessage, Admin
-from backend.app.schemas.schemas import BirthdayMessageResponse, BirthdayMessageCreate
-from backend.app.security import get_current_admin
+try:
+    from app.database import get_db
+    from app.models.entities import BirthdayMessage, Admin
+    from app.schemas.schemas import BirthdayMessageResponse, BirthdayMessageCreate
+    from app.security import get_current_admin
+except ImportError:
+    from backend.app.database import get_db
+    from backend.app.models.entities import BirthdayMessage, Admin
+    from backend.app.schemas.schemas import BirthdayMessageResponse, BirthdayMessageCreate
+    from backend.app.security import get_current_admin
 
 router = APIRouter(prefix="/api/messages", tags=["Birthday Messages"])
 

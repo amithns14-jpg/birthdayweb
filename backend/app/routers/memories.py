@@ -3,10 +3,16 @@ import uuid
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
 from sqlalchemy.orm import Session
-from backend.app.database import get_db, BASE_DIR
-from backend.app.models.entities import Memory, Admin
-from backend.app.schemas.schemas import MemoryResponse, MemoryCreate, MemoryUpdate
-from backend.app.security import get_current_admin
+try:
+    from app.database import get_db, BASE_DIR
+    from app.models.entities import Memory, Admin
+    from app.schemas.schemas import MemoryResponse, MemoryCreate, MemoryUpdate
+    from app.security import get_current_admin
+except ImportError:
+    from backend.app.database import get_db, BASE_DIR
+    from backend.app.models.entities import Memory, Admin
+    from backend.app.schemas.schemas import MemoryResponse, MemoryCreate, MemoryUpdate
+    from backend.app.security import get_current_admin
 
 router = APIRouter(prefix="/api/memories", tags=["Memories"])
 

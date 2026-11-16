@@ -1,9 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from backend.app.database import get_db
-from backend.app.models.entities import BirthdayProfile, Admin
-from backend.app.schemas.schemas import ProfileResponse, ProfileUpdate
-from backend.app.security import get_current_admin
+try:
+    from app.database import get_db
+    from app.models.entities import BirthdayProfile, Admin
+    from app.schemas.schemas import ProfileResponse, ProfileUpdate
+    from app.security import get_current_admin
+except ImportError:
+    from backend.app.database import get_db
+    from backend.app.models.entities import BirthdayProfile, Admin
+    from backend.app.schemas.schemas import ProfileResponse, ProfileUpdate
+    from backend.app.security import get_current_admin
 
 router = APIRouter(prefix="/api/profile", tags=["Birthday Profile"])
 

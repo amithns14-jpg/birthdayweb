@@ -6,8 +6,12 @@ from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
-from backend.app.database import get_db
-from backend.app.models.entities import Admin
+try:
+    from app.database import get_db
+    from app.models.entities import Admin
+except ImportError:
+    from backend.app.database import get_db
+    from backend.app.models.entities import Admin
 
 SECRET_KEY = os.getenv("SECRET_KEY", "super-secret-birthday-celebration-key-2025-v1")
 ALGORITHM = "HS256"
