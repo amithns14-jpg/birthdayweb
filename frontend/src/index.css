@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .glass-card {
+    background: rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  }
+
+  .glass-card-hover {
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .glass-card-hover:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(244, 114, 182, 0.4);
+    box-shadow: 0 12px 40px 0 rgba(244, 114, 182, 0.2);
+    transform: translateY(-4px);
+  }
+
+  .text-glow {
+    text-shadow: 0 0 20px rgba(244, 114, 182, 0.6), 0 0 40px rgba(192, 132, 252, 0.4);
+  }
+
+  .text-glow-gold {
+    text-shadow: 0 0 20px rgba(251, 191, 36, 0.6), 0 0 40px rgba(245, 158, 11, 0.3);
+  }
+
+  .polaroid-shadow {
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* Custom delicate scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0D0714;
+}
+::-webkit-scrollbar-thumb {
+  background: #3B0764;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #7E22CE;
+}
+
+/* Candle flame flickering animation */
+@keyframes flicker {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 0.95;
+    filter: drop-shadow(0 0 12px #f59e0b);
+  }
+  25% {
+    transform: scale(1.08, 0.94) rotate(-2deg);
+    opacity: 1;
+    filter: drop-shadow(0 0 18px #f59e0b);
+  }
+  50% {
+    transform: scale(0.92, 1.05) rotate(2deg);
+    opacity: 0.85;
+    filter: drop-shadow(0 0 10px #ef4444);
+  }
+  75% {
+    transform: scale(1.04, 0.96) rotate(-1deg);
+    opacity: 0.98;
+    filter: drop-shadow(0 0 16px #fbbf24);
+  }
+}
+
+.candle-flame {
+  animation: flicker 1.8s infinite ease-in-out;
+  transform-origin: bottom center;
+}
+
+/* Star twinkle background */
+.star {
+  position: absolute;
+  background-color: white;
+  border-radius: 50%;
+  pointer-events: none;
+}
