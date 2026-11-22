@@ -77,6 +77,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def normalize_api_path(request, call_next):
+    # If path was stripped of /api by serverless gateway, restore /api for routing
+    path = request.scope.get("path", "")
+    api_prefixes = ("auth", "profile", "photos", "memories", "surprises", "messages", "music")
+    parts = path.strip("/").split("/")
+    if parts and parts[0] in api_prefixes:
+        request.scope["path"] = "/api" + path
+    response = await call_next(request)
+    return response
+
 # Mount uploads directory for images and audio
 uploads_dir = os.path.join(BASE_DIR, "uploads")
 app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
