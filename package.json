@@ -1,0 +1,10 @@
+{
+  "name": "personalized-happy-birthday-website",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Full-stack personalized birthday celebration website",
+  "scripts": {
+    "build": "cd frontend && pnpm install && pnpm run build",
+    "dev": "cd frontend && pnpm run dev"
+  }
+}

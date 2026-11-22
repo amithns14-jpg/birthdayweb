@@ -90,6 +90,8 @@ app.include_router(surprises.router)
 app.include_router(messages.router)
 app.include_router(music.router)
 
+@app.get("/")
+@app.get("/health")
 @app.get("/api/health")
 def health_check():
     return {"status": "ok", "app": "Birthday Celebration API", "version": "1.0.0"}

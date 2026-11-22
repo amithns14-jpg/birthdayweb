@@ -13,17 +13,24 @@ import MusicPlayer from './components/MusicPlayer';
 import AdminDashboard from './components/AdminDashboard';
 import { api } from './services/api';
 import confetti from 'canvas-confetti';
+import {
+  DEFAULT_PROFILE,
+  DEFAULT_PHOTOS,
+  DEFAULT_MEMORIES,
+  DEFAULT_SURPRISES,
+  DEFAULT_MESSAGES
+} from './data/defaultData';
 
 export default function App() {
-  const [profile, setProfile] = useState(null);
-  const [photos, setPhotos] = useState([]);
-  const [memories, setMemories] = useState([]);
-  const [surprises, setSurprises] = useState([]);
-  const [messages, setMessages] = useState([]);
+  const [profile, setProfile] = useState(DEFAULT_PROFILE);
+  const [photos, setPhotos] = useState(DEFAULT_PHOTOS);
+  const [memories, setMemories] = useState(DEFAULT_MEMORIES);
+  const [surprises, setSurprises] = useState(DEFAULT_SURPRISES);
+  const [messages, setMessages] = useState(DEFAULT_MESSAGES);
   const [tracks, setTracks] = useState([]);
   const [activeTrack, setActiveTrack] = useState(null);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [currentSection, setCurrentSection] = useState('welcome');
   const [musicAutoPlayTrigger, setMusicAutoPlayTrigger] = useState(false);

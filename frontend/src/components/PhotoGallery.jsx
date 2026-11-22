@@ -79,6 +79,12 @@ export default function PhotoGallery({ photos = [] }) {
                     alt={photo.caption || "Birthday Memory"}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     loading="lazy"
+                    onError={(e) => {
+                      if (!e.target.dataset.tried) {
+                        e.target.dataset.tried = "true";
+                        e.target.src = '/uploads/photos/photo_1.jpg';
+                      }
+                    }}
                   />
                   {/* Subtle dark vignette on hover */}
                   <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -187,6 +193,12 @@ export default function PhotoGallery({ photos = [] }) {
                     src={activePhoto.file_path}
                     alt={activePhoto.caption || "Birthday Memory"}
                     className="max-h-[60vh] max-w-[85vw] object-contain rounded-lg"
+                    onError={(e) => {
+                      if (!e.target.dataset.tried) {
+                        e.target.dataset.tried = "true";
+                        e.target.src = '/uploads/photos/photo_1.jpg';
+                      }
+                    }}
                   />
                 </div>
 
